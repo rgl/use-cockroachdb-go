@@ -1,0 +1,38 @@
+# see https://github.com/compose-spec/compose-spec/blob/master/spec.md
+# see https://github.com/opencontainers/image-spec/blob/master/annotations.md
+services:
+  cockroachdb:
+    # see https://hub.docker.com/r/cockroachdb/cockroach
+    # see https://github.com/cockroachdb/cockroach/blob/v24.1.1/build/deploy/Dockerfile
+    # see https://www.cockroachlabs.com/docs/v24.1/start-a-local-cluster-in-docker-linux
+    # see https://www.cockroachlabs.com/docs/v24.1/local-testing
+    # see https://www.cockroachlabs.com/docs/v24.1/monitoring-and-alerting#health-endpoints
+    # see https://github.com/cockroachdb/cockroach/issues/84166#issuecomment-1948260175
+    hostname: cockroachdb
+    image: docker.io/cockroachdb/cockroach:v24.1.1
+    entrypoint:
+      - /bin/bash
+      - -eux
+      - -c
+      - |
+        sed -i 's/default_listen_addr_host=\"127.0.0.1\"/default_listen_addr_host=\"0.0.0.0\"/' /cockroach/cockroach.sh
+        exec /cockroach/cockroach.sh \
+          start-single-node \
+          --insecure
+    volumes:
+      - cockroachdb:/cockroach/cockroach-data
+    healthcheck:
+      test: ["CMD-SHELL", "curl --silent --fail-with-body --max-time 5 http://cockroachdb:8080/health?ready=1 || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 2
+    restart: on-failure
+  use-cockroachdb:
+    depends_on:
+      cockroachdb:
+        condition: service_healthy
+    build: .
+    ports:
+      - 4000:4000
+volumes:
+  cockroachdb:
